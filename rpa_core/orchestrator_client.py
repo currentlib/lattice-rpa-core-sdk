@@ -38,8 +38,15 @@ class TransactionItem:
         self.retry_count = retry_count
         self._client = client
 
+    @property
+    def item_id(self) -> str:
+        return self.id
+
     def set_success(self, output: Optional[dict] = None):
         self._client.set_transaction_status(self.id, "Successful", output=output)
+
+    def set_successful(self, output: Optional[dict] = None):
+        self.set_success(output=output)
 
     def set_failed(self, error_type: str = "Application", message: str = "", output: Optional[dict] = None):
         self._client.set_transaction_status(self.id, "Failed", error_type=error_type, message=message, output=output)
