@@ -49,21 +49,21 @@ def retry(
     return decorator
 
 
-def load_csv(filepath: str, encoding: str = "utf-8") -> list[dict[str, Any]]:
+def load_csv(filepath: str, delimiter: str = ",", encoding: str = "utf-8") -> list[dict[str, Any]]:
     """Load a CSV file and return rows as a list of dictionaries."""
     with open(filepath, mode="r", encoding=encoding) as f:
-        reader = csv.DictReader(f)
+        reader = csv.DictReader(f, delimiter=delimiter)
         return list(reader)
 
 
-def save_csv(filepath: str, rows: list[dict[str, Any]], fieldnames: Sequence[str] | None = None, encoding: str = "utf-8") -> None:
+def save_csv(filepath: str, rows: list[dict[str, Any]], fieldnames: Sequence[str] | None = None, delimiter: str = ",", encoding: str = "utf-8") -> None:
     """Save a list of dictionaries to a CSV file."""
     if not rows and not fieldnames:
         return
     
     keys = fieldnames or list(rows[0].keys())
     with open(filepath, mode="w", newline="", encoding=encoding) as f:
-        writer = csv.DictWriter(f, fieldnames=keys)
+        writer = csv.DictWriter(f, fieldnames=keys, delimiter=delimiter)
         writer.writeheader()
         writer.writerows(rows)
 
