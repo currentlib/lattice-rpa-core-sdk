@@ -217,15 +217,18 @@ class OrchestratorClient:
         """Fetch next New queue item via SKIP LOCKED."""
         url = f"{self.orchestrator_url}/api/robot/queues/{queue_name}/next"
         resp = requests.get(url, headers=self._headers(), timeout=10)
-        if resp.status_code == 204 or not resp.text:
+        if resp.status_code in (204, 404) or not resp.text:
             return None
         resp.raise_for_status()
         data = resp.json()
+        if not data or not isinstance(data, dict) or "id" not in data:
+            return None
+
         return TransactionItem(
             item_id=data["id"],
             queue_id=data["queue_id"],
             reference=data.get("reference"),
-            data=data["data"],
+            data=data.get("data", {}),
             retry_count=data.get("retry_count", 0),
             client=self,
         )
