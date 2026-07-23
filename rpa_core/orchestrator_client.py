@@ -17,11 +17,11 @@ class TransactionItem:
         self.retry_count = retry_count
         self._client = client
 
-    def set_success(self):
-        self._client.set_transaction_status(self.id, "Successful")
+    def set_success(self, output: Optional[dict] = None):
+        self._client.set_transaction_status(self.id, "Successful", output=output)
 
-    def set_failed(self, error_type: str = "Application", message: str = ""):
-        self._client.set_transaction_status(self.id, "Failed", error_type=error_type, message=message)
+    def set_failed(self, error_type: str = "Application", message: str = "", output: Optional[dict] = None):
+        self._client.set_transaction_status(self.id, "Failed", error_type=error_type, message=message, output=output)
 
 
 class OrchestratorClient:
@@ -71,9 +71,9 @@ class OrchestratorClient:
             client=self,
         )
 
-    def set_transaction_status(self, item_id: str, status_val: str, error_type: Optional[str] = None, message: Optional[str] = None):
+    def set_transaction_status(self, item_id: str, status_val: str, error_type: Optional[str] = None, message: Optional[str] = None, output: Optional[dict] = None):
         url = f"{self.orchestrator_url.rstrip('/')}/api/robot/queues/items/{item_id}/status"
-        payload = {"status": status_val, "error_type": error_type, "message": message}
+        payload = {"status": status_val, "error_type": error_type, "message": message, "output": output}
         resp = requests.patch(url, json=payload, headers=self._headers(), timeout=10)
         resp.raise_for_status()
 
