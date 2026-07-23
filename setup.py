@@ -2,8 +2,8 @@ from setuptools import setup, find_packages
 
 setup(
     name="rpa_core",
-    version="0.1.0",
-    description="Developer Python SDK and BasePerformer Framework for RPA Orchestrator",
+    version="0.2.0",
+    description="Enterprise Python SDK with BaseDispatcher & BasePerformer Frameworks for Lattice RPA Orchestrator",
     author="Lattice Team",
     packages=find_packages(),
     install_requires=[

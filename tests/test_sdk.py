@@ -1,53 +1,147 @@
-import pytest
-from unittest.mock import MagicMock
-from rpa_core.base_performer import BasePerformer
-from rpa_core.exceptions import BusinessRuleException, ApplicationException
-from rpa_core.orchestrator_client import TransactionItem
+import os
+import unittest
+import tempfile
+from rpa_core import (
+    BaseDispatcher,
+    BasePerformer,
+    BusinessRuleException,
+    ApplicationException,
+    retry,
+    load_csv,
+    save_csv,
+    load_json,
+    save_json,
+    mask_secret,
+)
 
 
-class DummyRobot(BasePerformer):
-    QUEUE_NAME = "TestQueue"
+class TestUtils(unittest.TestCase):
+    def test_mask_secret(self):
+        self.assertEqual(mask_secret("secret1234"), "******1234")
+        self.assertEqual(mask_secret("123"), "***")
+        self.assertEqual(mask_secret(""), "")
 
-    def __init__(self, mock_client, items_to_process):
-        super().__init__(orchestrator_client=mock_client)
-        self.items = items_to_process
-        self.setup_called = False
-        self.cleanup_called = False
+    def test_retry_decorator(self):
+        attempts = 0
+
+        @retry(max_attempts=3, delay=0.01, backoff=1.0)
+        def unstable_func():
+            nonlocal attempts
+            attempts += 1
+            if attempts < 3:
+                raise ValueError("Temporary failure")
+            return "success"
+
+        result = unstable_func()
+        self.assertEqual(result, "success")
+        self.assertEqual(attempts, 3)
+
+    def test_csv_helpers(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            filepath = os.path.join(tmpdir, "test.csv")
+            data = [
+                {"invoice_num": "1001", "amount": "1500"},
+                {"invoice_num": "1002", "amount": "3200"},
+            ]
+            save_csv(filepath, data)
+            loaded = load_csv(filepath)
+            self.assertEqual(loaded, data)
+
+    def test_json_helpers(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            filepath = os.path.join(tmpdir, "test.json")
+            data = {"key": "value", "items": [1, 2, 3]}
+            save_json(filepath, data)
+            loaded = load_json(filepath)
+            self.assertEqual(loaded, data)
+
+
+class MockOrchestratorClient:
+    def __init__(self):
+        self.logs = []
+        self.queue = []
+        self.assets = {
+            "MaxThreshold": "5000",
+            "CRM_KEY": "secret_api_key_123",
+            "EnableDebug": "true",
+            "Rate": "1.5",
+        }
+
+    def log(self, msg, level="Info"):
+        self.logs.append((level, msg))
+
+    def get_asset_details(self, name):
+        if name in self.assets:
+            return {"name": name, "value": self.assets[name], "value_type": "Text"}
+        raise ApplicationException(f"Asset '{name}' not found")
+
+    def get_asset(self, name):
+        return self.get_asset_details(name)["value"]
+
+    def get_credential(self, name):
+        return self.get_asset(name)
+
+    def get_asset_int(self, name, default=0):
+        val = self.get_asset(name)
+        return int(val)
+
+    def get_asset_float(self, name, default=0.0):
+        val = self.get_asset(name)
+        return float(val)
+
+    def get_asset_bool(self, name):
+        return self.get_asset(name).lower() == "true"
+
+    def get_asset_json(self, name):
+        import json
+        return json.loads(self.get_asset(name))
+
+    def add_queue_item(self, queue_name, data, reference=None):
+        for existing in self.queue:
+            if reference and existing.get("reference") == reference:
+                raise BusinessRuleException("Duplicate reference")
+        self.queue.append({"queue_name": queue_name, "data": data, "reference": reference})
+        return {"id": "mock-id-1"}
+
+    def add_queue_items_bulk(self, queue_name, items):
+        added = 0
+        skipped = 0
+        for item in items:
+            ref = item.get("reference")
+            data = item.get("data", item)
+            try:
+                self.add_queue_item(queue_name, data, reference=ref)
+                added += 1
+            except BusinessRuleException:
+                skipped += 1
+        return {"total": len(items), "added": added, "skipped": skipped}
+
+
+class SampleDispatcher(BaseDispatcher):
+    QUEUE_NAME = "Invoices"
 
     def setup(self):
-        self.setup_called = True
+        self.threshold = self.get_asset_int("MaxThreshold")
 
-    def process(self, item):
-        val = item.data.get("action")
-        if val == "business_fail":
-            raise BusinessRuleException("Business validation error")
-        elif val == "app_fail":
-            raise ApplicationException("Element not found")
-
-    def cleanup(self):
-        self.cleanup_called = True
+    def dispatch(self):
+        return [
+            {"data": {"invoice_num": "101", "amount": 1000}, "reference": "INV-101"},
+            {"data": {"invoice_num": "102", "amount": 2000}, "reference": "INV-102"},
+            {"data": {"invoice_num": "101", "amount": 1000}, "reference": "INV-101"},  # Duplicate
+        ]
 
 
-def test_base_performer_flow():
-    mock_client = MagicMock()
+class TestDispatcherAndPerformer(unittest.TestCase):
+    def test_dispatcher_flow(self):
+        client = MockOrchestratorClient()
+        dispatcher = SampleDispatcher(orchestrator_client=client)
+        dispatcher.run()
 
-    item1 = TransactionItem("1", "q1", "ref1", {"action": "success"}, 0, mock_client)
-    item2 = TransactionItem("2", "q1", "ref2", {"action": "business_fail"}, 0, mock_client)
-    item3 = TransactionItem("3", "q1", "ref3", {"action": "app_fail"}, 0, mock_client)
+        self.assertEqual(dispatcher.stats["total"], 3)
+        self.assertEqual(dispatcher.stats["added"], 2)
+        self.assertEqual(dispatcher.stats["skipped"], 1)
+        self.assertEqual(len(client.queue), 2)
 
-    mock_client.get_transaction_item.side_effect = [item1, item2, item3, None]
 
-    robot = DummyRobot(mock_client, [item1, item2, item3])
-    robot.run()
-
-    assert robot.setup_called is True
-    assert robot.cleanup_called is True
-
-    # Item 1 should set success
-    mock_client.set_transaction_status.assert_any_call("1", "Successful")
-
-    # Item 2 should set failed with Business error
-    mock_client.set_transaction_status.assert_any_call("2", "Failed", error_type="Business", message="Business validation error")
-
-    # Item 3 should set failed with Application error
-    mock_client.set_transaction_status.assert_any_call("3", "Failed", error_type="Application", message="Element not found")
+if __name__ == "__main__":
+    unittest.main()

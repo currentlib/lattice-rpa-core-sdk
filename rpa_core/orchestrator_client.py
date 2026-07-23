@@ -95,6 +95,36 @@ class OrchestratorClient:
         resp.raise_for_status()
         return resp.json()
 
+    def add_queue_items_bulk(self, queue_name: str, items: list[dict[str, Any]]) -> dict[str, int]:
+        """
+        Pushes multiple items into an Orchestrator Queue.
+        Each item element can be a dict with 'data' and optional 'reference', or raw data payload dict.
+        Returns summary dictionary: {"total": int, "added": int, "skipped": int}
+        """
+        total = len(items)
+        added = 0
+        skipped = 0
+
+        for raw_item in items:
+            if "data" in raw_item and isinstance(raw_item["data"], dict):
+                data = raw_item["data"]
+                reference = raw_item.get("reference")
+            else:
+                data = raw_item
+                reference = raw_item.get("reference") if isinstance(raw_item, dict) else None
+
+            try:
+                self.add_queue_item(queue_name=queue_name, data=data, reference=reference)
+                added += 1
+            except BusinessRuleException:
+                skipped += 1
+                logger.info(f"Skipped duplicate queue item (reference: '{reference}') in queue '{queue_name}'")
+            except Exception as e:
+                logger.error(f"Error adding queue item to queue '{queue_name}': {e}")
+                raise
+
+        return {"total": total, "added": added, "skipped": skipped}
+
     def get_transaction_item(self, queue_name: str) -> Optional[TransactionItem]:
         url = f"{self.orchestrator_url.rstrip('/')}/api/robot/queues/{queue_name}/next"
         resp = requests.get(url, headers=self._headers(), timeout=10)
