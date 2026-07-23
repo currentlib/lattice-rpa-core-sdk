@@ -38,13 +38,53 @@ class OrchestratorClient:
             "Content-Type": "application/json",
         }
 
-    def get_asset(self, name: str) -> str:
+    def get_asset_details(self, name: str) -> dict[str, Any]:
+        """Fetch asset details dictionary from Orchestrator."""
         url = f"{self.orchestrator_url.rstrip('/')}/api/robot/assets/{name}"
         resp = requests.get(url, headers=self._headers(), timeout=10)
         if resp.status_code == 404:
             raise ApplicationException(f"Asset '{name}' not found on Orchestrator")
         resp.raise_for_status()
-        return resp.json().get("value", "")
+        return resp.json()
+
+    def get_asset(self, name: str) -> str:
+        """Fetch asset value as string."""
+        details = self.get_asset_details(name)
+        return details.get("value", "")
+
+    def get_credential(self, name: str) -> str:
+        """Fetch credential asset decrypted secret value."""
+        return self.get_asset(name)
+
+    def get_asset_int(self, name: str, default: int = 0) -> int:
+        """Fetch asset value parsed as integer."""
+        val = self.get_asset(name)
+        try:
+            return int(val)
+        except (ValueError, TypeError):
+            return default
+
+    def get_asset_float(self, name: str, default: float = 0.0) -> float:
+        """Fetch asset value parsed as float."""
+        val = self.get_asset(name)
+        try:
+            return float(val)
+        except (ValueError, TypeError):
+            return default
+
+    def get_asset_bool(self, name: str) -> bool:
+        """Fetch asset value parsed as boolean."""
+        val = self.get_asset(name).strip().lower()
+        return val in ("true", "1", "yes", "t", "y", "enabled")
+
+    def get_asset_json(self, name: str) -> Any:
+        """Fetch asset value parsed as JSON payload object/dict/list."""
+        import json
+        val = self.get_asset(name)
+        try:
+            return json.loads(val)
+        except Exception as e:
+            raise ApplicationException(f"Asset '{name}' value is not valid JSON: {e}")
 
     def add_queue_item(self, queue_name: str, data: dict, reference: Optional[str] = None) -> dict:
         url = f"{self.orchestrator_url.rstrip('/')}/api/robot/queues/{queue_name}/items"

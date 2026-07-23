@@ -16,6 +16,24 @@ class BasePerformer:
     def log(self, message: str, level: str = "Info"):
         self.orch.log(message, level=level)
 
+    def get_asset(self, name: str) -> str:
+        return self.orch.get_asset(name)
+
+    def get_credential(self, name: str) -> str:
+        return self.orch.get_credential(name)
+
+    def get_asset_int(self, name: str, default: int = 0) -> int:
+        return self.orch.get_asset_int(name, default=default)
+
+    def get_asset_float(self, name: str, default: float = 0.0) -> float:
+        return self.orch.get_asset_float(name, default=default)
+
+    def get_asset_bool(self, name: str) -> bool:
+        return self.orch.get_asset_bool(name)
+
+    def get_asset_json(self, name: str):
+        return self.orch.get_asset_json(name)
+
     def setup(self):
         """Executed ONCE at startup (Analogous to Init state). Override in subclass."""
         pass
