@@ -52,7 +52,7 @@ def retry(
 def load_csv(filepath: str, delimiter: str = ",", encoding: str = "utf-8-sig") -> list[dict[str, Any]]:
     """Load a CSV file and return rows as a list of dictionaries with cleaned keys."""
     with open(filepath, mode="r", encoding=encoding) as f:
-        reader = csv.DictReader(f, delimiter=delimiter)
+        reader = csv.reader(f, delimiter=delimiter)
         cleaned_rows = []
         for raw_row in reader:
             cleaned_row = {}
