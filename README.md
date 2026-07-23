@@ -304,3 +304,26 @@ services:
       - JOB_TOKEN=${JOB_TOKEN}
       - ORCHESTRATOR_URL=${ORCHESTRATOR_URL}
 ```
+
+---
+
+## Local Debugging & Testing Guide
+
+You can run and step-debug your robot code locally directly from your IDE (VS Code, PyCharm, or terminal) against Orchestrator without committing code to Git or creating Orchestrator jobs.
+
+### Step 1: Generate Developer Token
+1. Log into Orchestrator UI.
+2. Click **Dev Tokens** in the topbar header.
+3. Click **Generate Token** and copy your secret key (`lat_dev_...`).
+
+### Step 2: Create Local `.env` File
+In your local robot project directory, create a `.env` file (ensure `.env` is added to your `.gitignore`):
+
+```env
+ORCHESTRATOR_URL=http://localhost:8000
+ORCHESTRATOR_TOKEN=lat_dev_a8f9328109231...
+DEV_FOLDER_NAME=Default
+```
+
+### Step 3: Run & Debug Directly in IDE
+Run `python main.py` or start F5 debug session in VS Code / PyCharm! `rpa_core` will automatically load your `.env`, connect via `ORCHESTRATOR_TOKEN`, resolve the target folder, and execute your automation cleanly.
