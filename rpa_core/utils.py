@@ -52,14 +52,16 @@ def retry(
 def load_csv(filepath: str, delimiter: str = ",", encoding: str = "utf-8-sig") -> list[dict[str, Any]]:
     """Load a CSV file and return rows as a list of dictionaries with cleaned keys."""
     with open(filepath, mode="r", encoding=encoding) as f:
-        reader = csv.reader(f, delimiter=delimiter)
+        reader = csv.DictReader(f, delimiter=delimiter)
         cleaned_rows = []
         for raw_row in reader:
             cleaned_row = {}
             for k, v in raw_row.items():
                 if k is not None:
+                    # Cleans headers (e.g. " invoice_num " becomes "invoice_num")
                     clean_key = k.strip('\ufeff\ufeef\r\n\t ')
-                    cleaned_row[clean_key] = v
+                    # Cleans the values as well to prevent float() errors later
+                    cleaned_row[clean_key] = v.strip() if isinstance(v, str) else v
             cleaned_rows.append(cleaned_row)
         return cleaned_rows
 
