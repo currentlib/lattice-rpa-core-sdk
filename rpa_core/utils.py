@@ -49,11 +49,19 @@ def retry(
     return decorator
 
 
-def load_csv(filepath: str, delimiter: str = ",", encoding: str = "utf-8") -> list[dict[str, Any]]:
-    """Load a CSV file and return rows as a list of dictionaries."""
+def load_csv(filepath: str, delimiter: str = ",", encoding: str = "utf-8-sig") -> list[dict[str, Any]]:
+    """Load a CSV file and return rows as a list of dictionaries with cleaned keys."""
     with open(filepath, mode="r", encoding=encoding) as f:
         reader = csv.DictReader(f, delimiter=delimiter)
-        return list(reader)
+        cleaned_rows = []
+        for raw_row in reader:
+            cleaned_row = {}
+            for k, v in raw_row.items():
+                if k is not None:
+                    clean_key = k.strip('\ufeff\ufeef\r\n\t ')
+                    cleaned_row[clean_key] = v
+            cleaned_rows.append(cleaned_row)
+        return cleaned_rows
 
 
 def save_csv(filepath: str, rows: list[dict[str, Any]], fieldnames: Sequence[str] | None = None, delimiter: str = ",", encoding: str = "utf-8") -> None:
