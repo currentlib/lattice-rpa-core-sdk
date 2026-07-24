@@ -175,6 +175,26 @@ class OrchestratorClient:
         val = self.get_asset(name)
         return json.loads(val)
 
+    def get_connection(self, name: str) -> dict:
+        """Fetch connection configuration."""
+        if not self.is_local_dev:
+            url = f"{self.orchestrator_url}/api/robot/connections/{name}"
+            resp = requests.get(url, headers=self._headers(), timeout=10)
+            resp.raise_for_status()
+            return resp.json()
+        else:
+            # Local Dev Mode: Resolve folder_id and fetch connection
+            if not self.folder_id:
+                self._resolve_folder_id()
+            url = f"{self.orchestrator_url}/api/folders/{self.folder_id}/connections"
+            resp = requests.get(url, headers=self._headers(), timeout=10)
+            resp.raise_for_status()
+            connections = resp.json()
+            conn = next((c for c in connections if c.get("name") == name), None)
+            if not conn:
+                raise ApplicationException(f"Connection '{name}' not found in folder '{self.dev_folder_name}'")
+            return conn
+
     def add_queue_item(self, queue_name: str, data: dict, reference: Optional[str] = None) -> dict:
         """Push transaction item into Orchestrator Queue."""
         if not self.is_local_dev:

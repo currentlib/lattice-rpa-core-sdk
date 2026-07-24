@@ -53,6 +53,38 @@ class BasePerformer:
         """Helper to add an item to another queue from performer."""
         return self.orch.add_queue_item(queue_name=queue_name, data=data, reference=reference)
 
+    def send_notification(self, connection_name: str, title: str, message: str, attachment_file_path: Optional[str] = None):
+        """Send a notification using a configured Connection."""
+        conn = self.orch.get_connection(connection_name)
+        if conn.get("type") != "Telegram":
+            raise ApplicationException(f"Unsupported connection type '{conn.get('type')}' for notifications.")
+        
+        config = conn.get("config", {})
+        bot_token = config.get("bot_token")
+        chat_id = config.get("chat_id")
+        if not bot_token or not chat_id:
+            raise ApplicationException(f"Connection '{connection_name}' is missing Telegram bot_token or chat_id.")
+
+        import requests
+        formatted_message = f"<b>{title}</b>\n\n{message}"
+
+        if attachment_file_path:
+            import os
+            if not os.path.exists(attachment_file_path):
+                raise ApplicationException(f"Attachment file '{attachment_file_path}' does not exist.")
+            
+            url = f"https://api.telegram.org/bot{bot_token}/sendDocument"
+            with open(attachment_file_path, "rb") as f:
+                payload = {"chat_id": chat_id, "caption": formatted_message, "parse_mode": "HTML"}
+                files = {"document": f}
+                resp = requests.post(url, data=payload, files=files, timeout=30)
+                resp.raise_for_status()
+        else:
+            url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
+            payload = {"chat_id": chat_id, "text": formatted_message, "parse_mode": "HTML"}
+            resp = requests.post(url, json=payload, timeout=10)
+            resp.raise_for_status()
+
     def setup(self):
         """Executed ONCE at startup (Init phase). Override in subclass."""
         pass
