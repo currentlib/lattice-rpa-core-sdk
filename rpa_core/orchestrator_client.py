@@ -160,7 +160,7 @@ class OrchestratorClient:
     def should_stop(self) -> bool:
         """Polls the orchestrator to check if the user requested a graceful stop."""
         try:
-            url = f"{self.orchestrator_url}/api/v1/robot/should_stop"
+            url = f"{self.orchestrator_url}/api/robot/should_stop"
             resp = requests.get(url, headers=self._headers(), timeout=5)
             if resp.status_code == 200:
                 data = resp.json()
