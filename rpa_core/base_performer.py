@@ -86,6 +86,10 @@ class BasePerformer:
 
         try:
             while True:
+                if self.orch.should_stop():
+                    self.log("Received graceful stop signal. Halting transaction loop.", level="Warning")
+                    break
+
                 item = self.orch.get_transaction_item(self.QUEUE_NAME)
                 if not item:
                     self.log("No more transaction items found. Exiting transaction loop.")

@@ -157,6 +157,18 @@ class OrchestratorClient:
         except Exception:
             return False
 
+    def should_stop(self) -> bool:
+        """Polls the orchestrator to check if the user requested a graceful stop."""
+        try:
+            url = f"{self.orchestrator_url}/api/v1/robot/should_stop"
+            resp = requests.get(url, headers=self.headers, timeout=5)
+            if resp.status_code == 200:
+                data = resp.json()
+                return data.get("should_stop", False)
+        except Exception as e:
+            logger.debug(f"Failed checking should_stop: {e}")
+        return False
+
     def get_asset_json(self, name: str) -> Any:
         """Fetch asset value parsed as JSON."""
         import json
